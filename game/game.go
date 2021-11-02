@@ -12,6 +12,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+type gameState int
+const (
+	Intro gameState = iota
+	Running
+)
+
 //go:embed sprites/cloud.png
 var cloud []byte
 
@@ -28,6 +34,8 @@ var balloonPopped []byte
 var bullet []byte
 
 type FirstGame struct {
+	state gameState
+
 	width, height, bulletCount, bulletRate int
 
 	balloon ebiten.Image
@@ -108,9 +116,16 @@ func (g *FirstGame) Update() error {
 	g.cursorX, g.cursorY = ebiten.CursorPosition()
 	g.shooting = g.isShooting()
 
-	g.updateClouds()
-	g.updateBalloons()
-	g.bullets.Update(g)
+	switch g.state {
+	case Intro:
+		if g.shooting {
+			g.state = Running
+		}
+	case Running:
+		g.updateClouds()
+		g.updateBalloons()
+		g.bullets.Update(g)
+	}
 
 	return nil
 }
@@ -122,13 +137,16 @@ func (g *FirstGame) Draw(screen *ebiten.Image) {
 	screen.DrawImage(&g.crosshair, op)
 
 	g.bullets.Draw(screen, g)
+	switch g.state {
+	case Intro:
+	case Running:
+		for _, cloud := range g.clouds {
+			cloud.Draw(screen, g)
+		}
 
-	for _, cloud := range g.clouds {
-		cloud.Draw(screen, g)
-	}
-
-	for _, balloon := range g.balloons {
-		balloon.Draw(screen, g)
+		for _, balloon := range g.balloons {
+			balloon.Draw(screen, g)
+		}
 	}
 }
 
@@ -157,6 +175,7 @@ func (g *FirstGame) initializeImages() {
 }
 
 func (g *FirstGame) initialize(width, height int) {
+	g.state = Intro
 	g.width = width
 	g.height = height
 	g.bulletCount = 0
