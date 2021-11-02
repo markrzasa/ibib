@@ -10,6 +10,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text"
+
+	"golang.org/x/image/font/basicfont"
 )
 
 type gameState int
@@ -139,6 +142,11 @@ func (g *FirstGame) Draw(screen *ebiten.Image) {
 	g.bullets.Draw(screen, g)
 	switch g.state {
 	case Intro:
+		text.Draw(
+			screen,
+			"Move the crosshair with the mouse. Shoot with the left mouse button.",
+			basicfont.Face7x13,
+			10, 20, color.RGBA{0x00, 0x00, 0x00, 0xff})
 	case Running:
 		for _, cloud := range g.clouds {
 			cloud.Draw(screen, g)
