@@ -20,10 +20,12 @@ type Balloon struct {
 	popCount int
 
 	state ballonState
+
+	image *ebiten.Image
 }
 
 func (b *Balloon) isCollision(g *FirstGame) bool {
-	bounds := g.balloon.Bounds().Add(image.Point{b.x, g.height}).Sub(image.Point{0, b.y})
+	bounds := b.image.Bounds().Add(image.Point{b.x, g.height}).Sub(image.Point{0, b.y})
 	cursor := image.Rectangle{image.Point{g.cursorX, g.cursorY}, image.Point{g.cursorX + 1, g.cursorY + 1}}
 	return bounds.Intersect(cursor) != image.Rectangle{}
 }
@@ -38,7 +40,7 @@ func (b *Balloon) Update(g *FirstGame) {
 		if g.shooting && b.isCollision(g) {
 			b.state = Popped
 		} else {
-			b.y = (b.y + 1) % (g.height + g.balloon.Bounds().Dy())
+			b.y = (b.y + 1) % (g.height + b.image.Bounds().Dy())
 		}
 	case Popped:
 		if b.popCount < 10 {
@@ -54,7 +56,7 @@ func (b *Balloon) Update(g *FirstGame) {
 func (b *Balloon) Draw(screen *ebiten.Image, g *FirstGame) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(b.x), float64(screen.Bounds().Dy() - b.y))
-	screen.DrawImage(&g.balloon, op)
+	screen.DrawImage(b.image, op)
 	if b.state == Popped {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(g.cursorX - (g.poppedBaloon.Bounds().Dx() / 2)), float64(g.cursorY - (g.poppedBaloon.Bounds().Dy() / 2)))

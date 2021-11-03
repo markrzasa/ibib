@@ -27,8 +27,14 @@ var cloud []byte
 //go:embed sprites/crosshair.png
 var crosshair []byte
 
-//go:embed sprites/balloon.png
-var balloon []byte
+//go:embed sprites/blue_balloon.png
+var blueBalloon []byte
+
+//go:embed sprites/red_balloon.png
+var redBalloon []byte
+
+//go:embed sprites/yellow_balloon.png
+var yellowBalloon []byte
 
 //go:embed sprites/balloon_popped.png
 var balloonPopped []byte
@@ -41,7 +47,7 @@ type FirstGame struct {
 
 	width, height, bulletCount, bulletRate int
 
-	balloon ebiten.Image
+	balloonImages [3]ebiten.Image
 	bullet ebiten.Image
 	cloud ebiten.Image
 	crosshair ebiten.Image
@@ -177,7 +183,9 @@ func (g *FirstGame) newImage(imageBytes []byte) *ebiten.Image {
 func (g *FirstGame) initializeImages() {
 	g.cloud = *g.newImage(cloud)
 	g.crosshair = *g.newImage(crosshair)
-	g.balloon = *g.newImage(balloon)
+	g.balloonImages[0] = *g.newImage(blueBalloon)
+	g.balloonImages[1] = *g.newImage(redBalloon)
+	g.balloonImages[2] = *g.newImage(yellowBalloon)
 	g.poppedBaloon = *g.newImage(balloonPopped)
 	g.bullet = *g.newImage(bullet)
 }
@@ -193,11 +201,12 @@ func (g *FirstGame) initialize(width, height int) {
 		g.gamepadIds = map[ebiten.GamepadID]bool{}
 	}
 
-	balloonCount := int(width / g.balloon.Bounds().Dx())
+	balloonCount := int(width / g.balloonImages[0].Bounds().Dx())
 	g.balloons = make([]Balloon, balloonCount)
 	for i := 0; i < balloonCount; i++ {
-		g.balloons[i].x = i * g.balloon.Bounds().Dx()
+		g.balloons[i].x = i * g.balloonImages[0].Bounds().Dx()
 		g.balloons[i].y = 0
+		g.balloons[i].image = &g.balloonImages[i % len(g.balloonImages)]
 		g.balloons[i].state = StartWait
 	}
 
