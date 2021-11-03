@@ -8,7 +8,7 @@ update-dependencies:
 	go mod tidy -compat=1.17
 
 build-all-platforms:
-	for goos in "darwin" "linux" "windows"; do \
+	for goos in "darwin" "windows"; do \
 		for goarch in "amd64"; do \
 			GOOS=$$goos GOARCH=$$goarch go build -o out/$$goos-$$goarch/ $(THIS_DIR); \
 		done \
