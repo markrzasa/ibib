@@ -1,0 +1,9 @@
+services:
+  build:
+    container_name: build
+    build: ../../dockerfiles/ubuntu-go
+    command: ["tail", "-f", "/dev/null"]
+    volumes:
+      - type: bind
+        source: ../..
+        target: /opt/build
