@@ -50,7 +50,7 @@ func (bullets *Bullets) Draw(screen *ebiten.Image, g *FirstGame) {
 			bulletY := int((bullets.leftBullet.m * float32(x)) + float32(bullets.leftBullet.b))
 	
 			op.GeoM.Translate(float64(x - offset.X), float64(bulletY - offset.Y))
-			screen.DrawImage(&g.bullet, op)
+			screen.DrawImage(g.bullet, op)
 		}
 	
 		xInc = int(math.Max(float64((g.width - bullets.rightBullet.end.X) / bulletCount), 1))
@@ -59,7 +59,7 @@ func (bullets *Bullets) Draw(screen *ebiten.Image, g *FirstGame) {
 			bulletY := int((bullets.rightBullet.m * float32(x)) + float32(bullets.rightBullet.b))
 	
 			op.GeoM.Translate(float64(x - offset.X), float64(bulletY - offset.Y))
-			screen.DrawImage(&g.bullet, op)
+			screen.DrawImage(g.bullet, op)
 		}	
 	}
 }

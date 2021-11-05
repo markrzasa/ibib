@@ -12,6 +12,7 @@ const (
 	StartWait ballonState = iota
 	Floating
 	Popped
+	Falling
 )
 
 type Balloon struct {
@@ -25,7 +26,10 @@ type Balloon struct {
 }
 
 func (b *Balloon) isCollision(g *FirstGame) bool {
-	bounds := b.image.Bounds().Add(image.Point{b.x, g.height}).Sub(image.Point{0, b.y})
+	bounds := image.Rect(
+		b.image.Bounds().Min.X, b.image.Bounds().Min.Y,
+		b.image.Bounds().Max.X / 3, b.image.Bounds().Max.Y)
+	bounds = bounds.Add(image.Point{b.x, g.height}).Sub(image.Point{0, b.y})
 	cursor := image.Rectangle{image.Point{g.cursorX, g.cursorY}, image.Point{g.cursorX + 1, g.cursorY + 1}}
 	return bounds.Intersect(cursor) != image.Rectangle{}
 }
@@ -46,20 +50,41 @@ func (b *Balloon) Update(g *FirstGame) {
 		if b.popCount < 10 {
 			b.popCount++
 		} else {
-			b.state = StartWait
+			b.state = Falling
 			b.popCount = 0
+			b.y = b.y - b.image.Bounds().Dy()
+		}
+	case Falling:
+		b.y -= 1
+		if b.y <= 0 - b.image.Bounds().Dy() {
+			b.state = Floating
 			b.y = 0
 		}
 	}
 }
 
 func (b *Balloon) Draw(screen *ebiten.Image, g *FirstGame) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(b.x), float64(screen.Bounds().Dy() - b.y))
-	screen.DrawImage(b.image, op)
-	if b.state == Popped {
+	switch b.state {
+	case Popped:
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(g.cursorX - (g.poppedBaloon.Bounds().Dx() / 2)), float64(g.cursorY - (g.poppedBaloon.Bounds().Dy() / 2)))
-		screen.DrawImage(&g.poppedBaloon, op)
+		screen.DrawImage(g.poppedBaloon, op)
+		fallthrough
+	case Floating:
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(b.x), float64(screen.Bounds().Dy() - b.y))
+		width := b.image.Bounds().Dx() / 3
+		subImageRect := image.Rect(0, 0, width, b.image.Bounds().Dy())
+		subImage := b.image.SubImage(subImageRect).(*ebiten.Image)
+		screen.DrawImage(subImage, op)
+	case Falling:
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(b.x), float64(screen.Bounds().Dy() - b.y))
+		width := b.image.Bounds().Dx() / 3
+		x1 := width * (1 + (b.y % 2))
+		x2 := x1 + width
+		subImageRect := image.Rect(x1, 0, x2, b.image.Bounds().Dy())
+		subImage := b.image.SubImage(subImageRect).(*ebiten.Image)
+		screen.DrawImage(subImage, op)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"log"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -47,11 +48,15 @@ type FirstGame struct {
 
 	width, height, bulletCount, bulletRate int
 
-	balloonImages [3]ebiten.Image
-	bullet ebiten.Image
-	cloud ebiten.Image
-	crosshair ebiten.Image
-	poppedBaloon ebiten.Image
+	halfWidth, halfHeight float64
+
+	control Control
+
+	balloonImages [3]*ebiten.Image
+	bullet *ebiten.Image
+	cloud *ebiten.Image
+	crosshair *ebiten.Image
+	poppedBaloon *ebiten.Image
 
 	cursorX, cursorY int
 
@@ -67,45 +72,36 @@ type FirstGame struct {
 	gamepadIds map[ebiten.GamepadID]bool
 }
 
-func (g *FirstGame) manageGamepads() {
-	g.gamepadIdsBuffer = inpututil.AppendJustConnectedGamepadIDs(g.gamepadIdsBuffer[:0])
-	for _, id := range g.gamepadIdsBuffer {
-		g.gamepadIds[id] = true
-	}
-	for id, _ := range g.gamepadIds {
-		if inpututil.IsGamepadJustDisconnected(id) {
-			delete(g.gamepadIds, id)
-		}
-	}
-}
-
-func (g *FirstGame) isButtonPressed(id ebiten.GamepadID) bool {
+func (g *FirstGame) isPadButtonPressed() bool {
 	pressed := false
-	maxButtons := ebiten.GamepadButton(ebiten.GamepadButtonNum(id))
-	for b := ebiten.GamepadButton(id); b < maxButtons; b++ {
-		if ebiten.IsGamepadButtonPressed(id, b) {
-			pressed = true
-			break
+	for id := range(g.gamepadIds) {
+		for b := ebiten.StandardGamepadButtonRightBottom; b < ebiten.StandardGamepadButtonMax; b++ {
+			if ebiten.IsStandardGamepadButtonPressed(id, b) {
+				pressed = true
+				break
+			}
 		}
 	}
 
 	return pressed
 }
 
-func (g *FirstGame) isShooting() bool {
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		return true
+func (g *FirstGame) updateGamepads() {
+	g.gamepadIdsBuffer = inpututil.AppendJustConnectedGamepadIDs(g.gamepadIdsBuffer[:0])
+	for _, id := range g.gamepadIdsBuffer {
+		g.gamepadIds[id] = true
 	}
-
-	shooting := false
-	for id, _ := range(g.gamepadIds) {
-		if g.isButtonPressed(id) {
-			shooting = true
-			break
+	for id := range g.gamepadIds {
+		if inpututil.IsGamepadJustDisconnected(id) {
+			delete(g.gamepadIds, id)
 		}
-	}	
+	}
+}
 
-	return shooting
+func (g *FirstGame) updateCrosshair() {
+	g.shooting = g.control.isButtonPressed()
+
+	g.cursorX, g.cursorY = g.control.getPosition()	
 }
 
 func (g *FirstGame) updateClouds() {
@@ -121,19 +117,24 @@ func (g *FirstGame) updateBalloons() {
 }
 
 func (g *FirstGame) Update() error {
-	g.manageGamepads()
-	g.cursorX, g.cursorY = ebiten.CursorPosition()
-	g.shooting = g.isShooting()
+	g.updateGamepads()
 
 	switch g.state {
 	case Intro:
-		if g.shooting {
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			g.state = Running
+			g.control = &MouseControl{}
+			g.control.update(g)
+		} else if g.isPadButtonPressed() {
+			g.state = Running
+			g.control = &PadControl{}
+			g.control.update(g)
 		}
 	case Running:
+		g.control.update(g)
 		g.updateClouds()
 		g.updateBalloons()
-		g.bullets.Update(g)
+		g.updateCrosshair()
 	}
 
 	return nil
@@ -141,32 +142,55 @@ func (g *FirstGame) Update() error {
 
 func (g *FirstGame) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0x87, 0xCE, 0xEB, 0xff})
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(g.cursorX - (g.crosshair.Bounds().Dx() / 2)), float64(g.cursorY - (g.crosshair.Bounds().Dy() / 2)))
-	screen.DrawImage(&g.crosshair, op)
-
-	g.bullets.Draw(screen, g)
 	switch g.state {
 	case Intro:
+		padsConnected := len(g.gamepadIds) > 0
+		y := 20
 		text.Draw(
 			screen,
-			"Move the crosshair with the mouse. Shoot with the left mouse button.",
+			"Mouse: Move the crosshair with the mouse. Shoot with the left mouse button.",
 			basicfont.Face7x13,
-			10, 20, color.RGBA{0x00, 0x00, 0x00, 0xff})
+			10, y, color.RGBA{0x00, 0x00, 0x00, 0xff})
+		y += 20
+		if padsConnected {
+			text.Draw(
+				screen,
+				"Pad: Move the crosshair with the analog stick. Shoot with the bottom right button.",
+				basicfont.Face7x13,
+				10, y, color.RGBA{0x00, 0x00, 0x00, 0xff})
+				text.Draw(
+					screen,
+					"Click the mouse button to play using the mouse. Click a pad button to play using a pad.",
+					basicfont.Face7x13,
+					10, y + 20, color.RGBA{0x00, 0x00, 0x00, 0xff})
+		} else {
+			text.Draw(
+				screen,
+				"Click the mouse button to play.",
+				basicfont.Face7x13,
+				10, y, color.RGBA{0x00, 0x00, 0x00, 0xff})
+		}
 	case Running:
-		for _, cloud := range g.clouds {
+		g.cursorX, g.cursorY = g.control.getPosition()
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(g.cursorX - (g.crosshair.Bounds().Dx() / 2)), float64(g.cursorY - (g.crosshair.Bounds().Dy() / 2)))
+		screen.DrawImage(g.crosshair, op)
+	
+		g.bullets.Draw(screen, g)
+			for _, cloud := range g.clouds {
 			cloud.Draw(screen, g)
 		}
 
 		for _, balloon := range g.balloons {
 			balloon.Draw(screen, g)
 		}
+
+		g.bullets.Update(g)
 	}
 }
 
 func (g *FirstGame) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	if outsideWidth != g.width || outsideHeight != g.height {
-		log.Println("layout changed - reinitialize")
 		g.initialize(outsideWidth, outsideHeight)
 	}
 	return outsideWidth, outsideHeight
@@ -181,19 +205,21 @@ func (g *FirstGame) newImage(imageBytes []byte) *ebiten.Image {
 }
 
 func (g *FirstGame) initializeImages() {
-	g.cloud = *g.newImage(cloud)
-	g.crosshair = *g.newImage(crosshair)
-	g.balloonImages[0] = *g.newImage(blueBalloon)
-	g.balloonImages[1] = *g.newImage(redBalloon)
-	g.balloonImages[2] = *g.newImage(yellowBalloon)
-	g.poppedBaloon = *g.newImage(balloonPopped)
-	g.bullet = *g.newImage(bullet)
+	g.cloud = g.newImage(cloud)
+	g.crosshair = g.newImage(crosshair)
+	g.balloonImages[0] = g.newImage(blueBalloon)
+	g.balloonImages[1] = g.newImage(redBalloon)
+	g.balloonImages[2] = g.newImage(yellowBalloon)
+	g.poppedBaloon = g.newImage(balloonPopped)
+	g.bullet = g.newImage(bullet)
 }
 
 func (g *FirstGame) initialize(width, height int) {
 	g.state = Intro
 	g.width = width
 	g.height = height
+	g.halfWidth = math.Ceil(float64(g.width) / 2.0)
+	g.halfHeight = math.Ceil(float64(g.height) / 2.0)
 	g.bulletCount = 0
 	g.bulletRate = 20
 
@@ -201,12 +227,13 @@ func (g *FirstGame) initialize(width, height int) {
 		g.gamepadIds = map[ebiten.GamepadID]bool{}
 	}
 
-	balloonCount := int(width / g.balloonImages[0].Bounds().Dx())
+	balloonWidth := g.balloonImages[0].Bounds().Dx() / 3
+	balloonCount := int(width / balloonWidth)
 	g.balloons = make([]Balloon, balloonCount)
 	for i := 0; i < balloonCount; i++ {
-		g.balloons[i].x = i * g.balloonImages[0].Bounds().Dx()
+		g.balloons[i].x = i * balloonWidth
 		g.balloons[i].y = 0
-		g.balloons[i].image = &g.balloonImages[i % len(g.balloonImages)]
+		g.balloons[i].image = g.balloonImages[i % len(g.balloonImages)]
 		g.balloons[i].state = StartWait
 	}
 

@@ -19,5 +19,5 @@ func (c *Cloud) Update(g *FirstGame) {
 func (c *Cloud) Draw(screen *ebiten.Image, g *FirstGame) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(c.x), float64(c.y))
-	screen.DrawImage(&g.cloud, op)
+	screen.DrawImage(g.cloud, op)
 }
