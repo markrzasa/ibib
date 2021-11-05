@@ -81,7 +81,11 @@ func (b *Balloon) Draw(screen *ebiten.Image, g *FirstGame) {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(b.x), float64(screen.Bounds().Dy() - b.y))
 		width := b.image.Bounds().Dx() / 3
-		x1 := width * (1 + (b.y % 2))
+		offset := 1
+		if (b.y % 20) / 10 < 1 {
+			offset = 0
+		}
+		x1 := width * (1 + (offset))
 		x2 := x1 + width
 		subImageRect := image.Rect(x1, 0, x2, b.image.Bounds().Dy())
 		subImage := b.image.SubImage(subImageRect).(*ebiten.Image)
